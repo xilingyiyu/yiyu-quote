@@ -1,0 +1,9 @@
+{
+  "name": "vela-quote",
+  "version": "1.0.0",
+  "description": "一言语录 - Xiaomi Vela JS 应用 (Redmi Watch 5)",
+  "scripts": {
+    "build": "aiot build"
+  },
+  "dependencies": {}
+}
