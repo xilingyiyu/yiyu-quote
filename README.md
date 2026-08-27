@@ -36,7 +36,7 @@
 │   │   └── quote.ux       # 语录主逻辑（取句/缓存/菜单）
 │   └── common/icon.png    # 应用图标（192×192 RGBA）
 ├── package.json           # 构建依赖（aiot）
-└── 一言语录_2.3.0.rpk      # 最新安装包
+└── yiyu-quote-v2.3.0.rpk      # 最新安装包
 ```
 
 ## 构建
