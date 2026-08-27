@@ -1,0 +1,502 @@
+<template>
+  <swiper class="root-swiper" index="{{page}}" indicator="false" loop="false" enableswipe="{{!editing}}">
+    <!-- ============ 第1页：语录 ============ -->
+    <div class="stage" onclick="nextQuote">
+      <text class="brand">一 言</text>
+      <div class="accent-line"></div>
+
+      <div class="body" if="{{loading}}">
+        <text class="hint">正在取一句…</text>
+      </div>
+
+      <div class="body" if="{{error}}">
+        <text class="err-icon">⚠</text>
+        <text class="hint">{{errorMsg}}</text>
+        <text class="sub-hint" if="{{cacheCount > 0}}">本地还有 {{cacheCount}} 条缓存</text>
+        <text class="retry-btn">再试一次</text>
+      </div>
+
+      <div class="quote-wrap" if="{{!loading && !error}}">
+        <text class="mark">「</text>
+        <text class="quote-text">{{text}}</text>
+        <text class="mark-end">」</text>
+        <div class="from-row">
+          <div class="dash"></div>
+          <text class="from">{{fromText}}</text>
+        </div>
+        <text class="offline-tag" if="{{fromCache}}">离线缓存</text>
+      </div>
+
+      <text class="foot">点按换一句 · 左滑菜单</text>
+    </div>
+
+    <!-- ============ 第2页：设置菜单 ============ -->
+    <div class="menu-stage">
+      <text class="brand-sm">缓 存</text>
+      <div class="accent-line-sm"></div>
+
+      <!-- 普通态：步进器 + 操作 -->
+      <div class="menu-block" if="{{!editing}}">
+        <text class="stat-line">已存 {{cacheCount}} / {{maxCount}} 条</text>
+
+        <div class="stepper">
+          <div class="step-btn" onclick="decMax"><text class="step-sym">－</text></div>
+          <text class="step-num">{{maxCount}}</text>
+          <div class="step-btn" onclick="incMax"><text class="step-sym">＋</text></div>
+        </div>
+        <text class="stepper-label">联网时预存条数</text>
+
+        <div class="kb-entry" onclick="openKeypad">
+          <text class="kb-entry-txt">⌨ 键盘输入</text>
+        </div>
+
+        <div class="btn-row">
+          <div class="op-btn op-primary" onclick="fetchNow"><text class="op-txt-primary">立即取</text></div>
+          <div class="op-btn op-danger" onclick="clearCache"><text class="op-txt-danger">清空</text></div>
+        </div>
+      </div>
+
+      <!-- 编辑态：数字键盘 -->
+      <div class="menu-block" if="{{editing}}">
+        <text class="buf-display">{{inputDisplay}}</text>
+        <text class="stepper-label">预存条数 · 范围 1-{{maxLimit}}</text>
+
+        <div class="kp-row">
+          <div class="kp-key" onclick="k1"><text class="kp-num">1</text></div>
+          <div class="kp-key" onclick="k2"><text class="kp-num">2</text></div>
+          <div class="kp-key" onclick="k3"><text class="kp-num">3</text></div>
+        </div>
+        <div class="kp-row">
+          <div class="kp-key" onclick="k4"><text class="kp-num">4</text></div>
+          <div class="kp-key" onclick="k5"><text class="kp-num">5</text></div>
+          <div class="kp-key" onclick="k6"><text class="kp-num">6</text></div>
+        </div>
+        <div class="kp-row">
+          <div class="kp-key" onclick="k7"><text class="kp-num">7</text></div>
+          <div class="kp-key" onclick="k8"><text class="kp-num">8</text></div>
+          <div class="kp-key" onclick="k9"><text class="kp-num">9</text></div>
+        </div>
+        <div class="kp-row">
+          <div class="kp-key kp-fn" onclick="delDigit"><text class="kp-fn-txt">⌫</text></div>
+          <div class="kp-key" onclick="k0"><text class="kp-num">0</text></div>
+          <div class="kp-key kp-ok" onclick="confirmInput"><text class="kp-ok-txt">✓</text></div>
+        </div>
+      </div>
+
+      <text class="toast" if="{{toast}}">{{toast}}</text>
+      <text class="foot foot-menu">右滑返回语录</text>
+    </div>
+  </swiper>
+</template>
+
+<style>
+  .root-swiper { width: 100%; height: 100%; }
+  .stage {
+    width: 100%; height: 100%;
+    flex-direction: column; justify-content: center; align-items: center;
+    background-color: #0b0f17;
+  }
+  .brand { font-size: 16px; letter-spacing: 6px; color: #eaf4ff; font-weight: bold; }
+  .accent-line { width: 28px; height: 3px; border-radius: 2px; margin-top: 8px; background-color: #22d3ee; }
+  .body { margin-top: 24px; flex-direction: column; justify-content: center; align-items: center; }
+  .err-icon { font-size: 28px; margin-bottom: 8px; }
+  .hint { font-size: 15px; color: #8b9bb5; }
+  .sub-hint { font-size: 12px; color: #5b6b82; margin-top: 6px; }
+  .retry-btn {
+    font-size: 13px; color: #22d3ee; margin-top: 14px;
+    padding: 6px 18px; border-width: 1px; border-style: solid;
+    border-color: #22d3ee; border-radius: 15px;
+  }
+
+  .quote-wrap {
+    margin-top: 18px; padding-left: 22px; padding-right: 22px;
+    flex-direction: column; justify-content: center; align-items: center;
+  }
+  .mark { font-size: 26px; font-weight: bold; line-height: 30px; color: #22d3ee; }
+  .mark-end { font-size: 26px; font-weight: bold; line-height: 30px; margin-top: 4px; color: #22d3ee; }
+  .quote-text { font-size: 19px; line-height: 30px; text-align: center; color: #eaf4ff; margin-top: 4px; margin-bottom: 10px; }
+  .from-row { flex-direction: row; justify-content: center; align-items: center; margin-top: 2px; }
+  .dash { width: 14px; height: 1px; background-color: #8b9bb5; margin-right: 6px; }
+  .from { font-size: 13px; color: #8b9bb5; }
+  .offline-tag {
+    font-size: 10px; color: #34d399; margin-top: 8px;
+    padding: 2px 8px; border-width: 1px; border-style: solid;
+    border-color: #34d399; border-radius: 9px;
+  }
+  .foot { position: absolute; bottom: 12px; font-size: 11px; letter-spacing: 1px; color: #5b6b82; }
+
+  /* ---------- 菜单页 ---------- */
+  .menu-stage {
+    width: 100%; height: 100%;
+    flex-direction: column; justify-content: center; align-items: center;
+    background-color: #0b0f17;
+  }
+  .brand-sm { font-size: 15px; letter-spacing: 5px; color: #eaf4ff; font-weight: bold; }
+  .accent-line-sm { width: 24px; height: 3px; border-radius: 2px; margin-top: 7px; background-color: #34d399; }
+  .stat-line { font-size: 13px; color: #8b9bb5; margin-top: 14px; }
+
+  .stepper {
+    flex-direction: row; justify-content: center; align-items: center; margin-top: 14px;
+  }
+  .step-btn {
+    width: 52px; height: 44px; border-radius: 12px;
+    background-color: rgba(255,255,255,0.07);
+    border-width: 1px; border-style: solid; border-color: rgba(255,255,255,0.14);
+    justify-content: center; align-items: center;
+  }
+  .step-sym { font-size: 20px; color: #eaf4ff; }
+  .step-num { font-size: 30px; font-weight: bold; color: #34d399; margin-left: 20px; margin-right: 20px; }
+  .stepper-label { font-size: 11px; color: #5b6b82; margin-top: 10px; }
+
+  .btn-row { flex-direction: row; margin-top: 20px; }
+  .op-btn {
+    padding: 9px 22px; border-radius: 17px;
+    border-width: 1px; border-style: solid;
+  }
+  .op-primary { background-color: rgba(52,211,153,0.14); border-color: #34d399; margin-right: 14px; }
+  .op-danger { background-color: rgba(251,113,133,0.10); border-color: #fb7185; }
+  .op-txt-primary { font-size: 14px; color: #34d399; }
+  .op-txt-danger { font-size: 14px; color: #fb7185; }
+
+  .menu-block { flex-direction: column; justify-content: center; align-items: center; }
+
+  .kb-entry {
+    margin-top: 16px;
+    padding: 7px 20px;
+    border-radius: 15px;
+    background-color: rgba(34,211,238,0.10);
+    border-width: 1px; border-style: solid; border-color: rgba(34,211,238,0.55);
+  }
+  .kb-entry-txt { font-size: 13px; color: #22d3ee; }
+
+  /* 数字键盘 */
+  .buf-display {
+    font-size: 40px; font-weight: bold; color: #34d399;
+    margin-top: 6px; margin-bottom: 4px;
+  }
+  .kp-row { flex-direction: row; margin-top: 8px; }
+  .kp-key {
+    width: 82px; height: 52px;
+    margin-left: 5px; margin-right: 5px;
+    border-radius: 13px;
+    background-color: rgba(255,255,255,0.08);
+    border-width: 1px; border-style: solid; border-color: rgba(255,255,255,0.16);
+    justify-content: center; align-items: center;
+  }
+  .kp-num { font-size: 22px; color: #eaf4ff; }
+  .kp-fn { background-color: rgba(251,191,36,0.12); border-color: rgba(251,191,36,0.6); }
+  .kp-fn-txt { font-size: 20px; color: #fbbf24; }
+  .kp-ok { background-color: rgba(52,211,153,0.16); border-color: #34d399; }
+  .kp-ok-txt { font-size: 22px; color: #34d399; }
+
+  .toast { font-size: 12px; color: #34d399; margin-top: 14px; }
+  .foot-menu { bottom: 12px; }
+</style>
+
+<script>
+  // 一言语录 v2 —— 双页(左滑菜单) + 本地缓存
+  // 全 ES5 写法；storage 键：q_cache(数组JSON) / q_max(条数)
+  import fetch from '@system.fetch'
+  import storage from '@system.storage'
+
+  var API_H = 'https://v1.hitokoto.cn/?encode=json&max_len=42'
+  var API_U = 'https://uapis.cn/api/v1/saying'
+  var KEY_CACHE = 'q_cache'
+  var KEY_MAX = 'q_max'
+  var MAX_LIMIT = 50
+
+  var TYPE_NAMES = {
+    a: '动画', b: '漫画', c: '游戏', d: '文学', e: '原创',
+    f: '网络', g: '其他', h: '影视', i: '诗词', j: '网易云',
+    k: '哲学', l: '抖机灵'
+  }
+
+  export default {
+    data: {
+      page: 0,
+      loading: true,
+      error: false,
+      errorMsg: '网络不可用',
+      text: '',
+      fromText: '',
+      fromCache: false,
+      cacheCount: 0,
+      maxCount: 10,
+      maxLimit: MAX_LIMIT,
+      editing: false,
+      inputBuf: '',
+      inputDisplay: '--',
+      toast: '',
+      _toastTimer: null,
+      cacheReads: 0
+    },
+
+    onInit() {
+      this.loadSettings()
+    },
+
+    /* ---------- 设置与缓存 ---------- */
+    loadSettings() {
+      var self = this
+      storage.get({
+        key: KEY_MAX,
+        success: function (data) {
+          var n = parseInt(data, 10)
+          self.maxCount = (n >= 1 && n <= MAX_LIMIT) ? n : 10
+        },
+        complete: function () {
+          self.loadCacheCount()
+          self.nextQuote()
+        }
+      })
+    },
+
+    loadCacheCount() {
+      var self = this
+      storage.get({
+        key: KEY_CACHE,
+        success: function (data) {
+          try {
+            var arr = JSON.parse(data || '[]')
+            self.cacheCount = arr.length
+          } catch (e) {
+            self.cacheCount = 0
+          }
+        },
+        fail: function () { self.cacheCount = 0 }
+      })
+    },
+
+    /* 读缓存（回调式，避免依赖 Promise） */
+    readCache(cb) {
+      storage.get({
+        key: KEY_CACHE,
+        success: function (data) {
+          try { cb(JSON.parse(data || '[]')) } catch (e) { cb([]) }
+        },
+        fail: function () { cb([]) }
+      })
+    },
+
+    writeCache(arr) {
+      var self = this
+      storage.set({
+        key: KEY_CACHE,
+        value: JSON.stringify(arr),
+        complete: function () { self.cacheCount = arr.length }
+      })
+    },
+
+    /* ---------- 语录获取策略 ----------
+       有网：请求一言 → 展示 + 存入本地（超出 maxCount 则挤掉最旧）
+       无网：读本地缓存 → 随机展示一条并移出队列 */
+    nextQuote() {
+      var self = this
+      self.loading = true
+      self.error = false
+      self.fromCache = false
+
+      var results = []
+      var pending = 2
+      var done = false
+
+      function finish() {
+        if (done) return
+        done = true
+        self.loading = false
+        if (results.length === 0) {
+          self.error = true
+          self.errorMsg = '网络不可用'
+          self.fallbackToCache()
+          return
+        }
+        // 随机展示一个来源，所有结果都入缓存
+        var pick = results[Math.floor(Math.random() * results.length)]
+        self.text = pick.t
+        self.fromText = pick.f
+        self.readCache(function (arr) {
+          for (var i = 0; i < results.length; i++) {
+            arr.push({ t: results[i].t, f: results[i].f, s: results[i].s })
+          }
+          while (arr.length > self.maxCount) { arr.shift() }
+          self.writeCache(arr)
+        })
+      }
+
+      function onOne(raw, src) {
+        var d = null
+        try { d = (typeof raw === 'string') ? JSON.parse(raw) : raw } catch (e) {}
+        if (d && (d.hitokoto || d.text)) {
+          results.push({
+            t: d.hitokoto || d.text,
+            f: (src === 'u') ? '网络语录' : self.buildFrom(d),
+            s: src
+          })
+        }
+        pending = pending - 1
+        if (pending <= 0) finish()
+      }
+
+      // 两个接口并行各调一次
+      fetch.fetch({
+        url: API_U,
+        method: 'GET',
+        responseType: 'json',
+        success: function (res) { onOne(res.data, 'u') },
+        fail: function () { pending = pending - 1; if (pending <= 0) finish() }
+      })
+      fetch.fetch({
+        url: API_H,
+        method: 'GET',
+        responseType: 'json',
+        success: function (res) { onOne(res.data, 'h') },
+        fail: function () { pending = pending - 1; if (pending <= 0) finish() }
+      })
+    },
+
+    fallbackToCache() {
+      var self = this
+      this.error = true
+      this.readCache(function (arr) {
+        if (arr.length === 0) return   // 保持错误态提示
+        var idx = Math.floor(Math.random() * arr.length)
+        var item = arr.splice(idx, 1)[0]
+        self.writeCache(arr)
+        self.text = item.t
+        self.fromText = item.f || ''
+        self.fromCache = true
+        self.error = false
+        // 每消费 2 条缓存，试调一次一言接口补 1 条（网络恢复探测）
+        self.cacheReads = (self.cacheReads || 0) + 1
+        if (self.cacheReads % 2 === 0) {
+          self.tryHitokotoRefresh()
+        }
+      })
+    },
+
+    /* 每 2 条缓存后：后台试调一言接口，成功则补 1 条进缓存 */
+    tryHitokotoRefresh() {
+      var self = this
+      fetch.fetch({
+        url: API_H,
+        method: 'GET',
+        responseType: 'json',
+        success: function (res) {
+          if (res.code !== 200 || !res.data) return
+          var d = (typeof res.data === 'string') ? JSON.parse(res.data) : res.data
+          if (!d.hitokoto) return
+          self.readCache(function (arr) {
+            arr.push({ t: d.hitokoto, f: self.buildFrom(d), s: 'h' })
+            while (arr.length > self.maxCount) { arr.shift() }
+            self.writeCache(arr)
+          })
+        },
+        fail: function () { /* 仍离线，保持缓存展示 */ }
+      })
+    },
+
+    buildFrom(d) {
+      var who = d.from_who ? d.from_who : ''
+      var src = d.from ? d.from : ''
+      if (who && src) return who + ' · ' + src
+      return who || src || TYPE_NAMES[d.type] || '一言'
+    },
+
+    /* ---------- 菜单交互 ---------- */
+    incMax() {
+      if (this.maxCount >= MAX_LIMIT) { this.showToast('最多 ' + MAX_LIMIT + ' 条'); return }
+      this.maxCount = this.maxCount + 1
+      this.saveMax()
+      this.trimCache()
+    },
+
+    decMax() {
+      if (this.maxCount <= 1) { this.showToast('至少保留 1 条'); return }
+      this.maxCount = this.maxCount - 1
+      this.saveMax()
+      this.trimCache()
+    },
+
+    saveMax() {
+      storage.set({ key: KEY_MAX, value: '' + this.maxCount })
+    },
+
+    trimCache() {
+      var self = this
+      this.readCache(function (arr) {
+        if (arr.length > self.maxCount) {
+          while (arr.length > self.maxCount) { arr.shift() }
+          self.writeCache(arr)
+        }
+      })
+    },
+
+    /* ---------- 数字键盘 ---------- */
+    openKeypad() {
+      this.editing = true
+      this.inputBuf = ''
+      this.inputDisplay = '--'
+    },
+
+    setInput(v) {
+      this.inputBuf = v
+      this.inputDisplay = v === '' ? '--' : v
+    },
+
+    tapDigit(n) {
+      if (this.inputBuf.length >= 2) return
+      this.setInput(this.inputBuf + n)
+    },
+    k0() { this.tapDigit('0') },
+    k1() { this.tapDigit('1') },
+    k2() { this.tapDigit('2') },
+    k3() { this.tapDigit('3') },
+    k4() { this.tapDigit('4') },
+    k5() { this.tapDigit('5') },
+    k6() { this.tapDigit('6') },
+    k7() { this.tapDigit('7') },
+    k8() { this.tapDigit('8') },
+    k9() { this.tapDigit('9') },
+
+    delDigit() {
+      var b = this.inputBuf
+      this.setInput(b.substring(0, b.length - 1))
+    },
+
+    confirmInput() {
+      var n = parseInt(this.inputBuf, 10)
+      if (!n || n < 1 || n > MAX_LIMIT) {
+        this.showToast('请输入 1-' + MAX_LIMIT)
+        return
+      }
+      this.maxCount = n
+      this.saveMax()
+      this.trimCache()
+      this.editing = false
+      this.showToast('已保存 ' + n + ' 条')
+    },
+
+    fetchNow() {
+      this.page = 0
+      this.nextQuote()
+    },
+
+    clearCache() {
+      var self = this
+      storage.delete({
+        key: KEY_CACHE,
+        complete: function () {
+          self.cacheCount = 0
+          self.showToast('已清空')
+        }
+      })
+    },
+
+    showToast(msg) {
+      var self = this
+      this.toast = msg
+      if (this._toastTimer) clearTimeout(this._toastTimer)
+      this._toastTimer = setTimeout(function () { self.toast = '' }, 1600)
+    }
+  }
+</script>
